@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FaPalette, FaSave, FaSpinner, FaBuilding, FaImage,
-  FaUpload, FaCheck, FaTimes, FaEye, FaTrash, FaCogs
+  FaUpload, FaCheck, FaTimes, FaEye, FaTrash, FaCogs,
+  FaFileInvoiceDollar, FaUserShield, FaGlobe
 } from 'react-icons/fa';
 import api from '../services/api';
 import AdminSucursales from './AdminSucursales';
@@ -156,6 +157,7 @@ const AdminPanel = () => {
   const [config, setConfig] = useState({
     empresa_nombre: '',
     empresa_ruc: '',
+    empresa_rnc: '',
     empresa_telefono: '',
     empresa_email: '',
     empresa_direccion: '',
@@ -166,6 +168,23 @@ const AdminPanel = () => {
     logo_factura: '',
     logo_resultados: '',
     logo_sidebar: '',
+    // NCF / Fiscal
+    ncf_b01_desde: '',
+    ncf_b01_hasta: '',
+    ncf_b02_desde: '',
+    ncf_b02_hasta: '',
+    ncf_actual: '',
+    itbis_porcentaje: '18',
+    moneda_simbolo: 'RD$',
+    // Portal Paciente
+    portal_url: '',
+    portal_titulo: '',
+    portal_mensaje_bienvenida: '',
+    portal_mostrar_resultados: 'true',
+    portal_mostrar_facturas: 'true',
+    // Servidor
+    servidor_url: '',
+    servidor_dominio: '',
   });
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -193,6 +212,8 @@ const AdminPanel = () => {
       await api.updateConfiguracion(config);
       setGuardado(true);
       setTimeout(() => setGuardado(false), 3000);
+      // Notificar a App.jsx que recargue la config de empresa
+      window.dispatchEvent(new CustomEvent('empresa-config-updated'));
     } catch (err) {
       alert('Error al guardar: ' + err.message);
     } finally {
@@ -222,17 +243,20 @@ const AdminPanel = () => {
       </div>
 
       {/* Tabs Menu */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '2px solid #eee' }}>
-        <button
-          onClick={() => setActiveTab('general')}
-          style={{ padding: '10px 20px', background: activeTab === 'general' ? '#3498db' : 'transparent', color: activeTab === 'general' ? '#fff' : '#666', border: 'none', borderTopLeftRadius: 8, borderTopRightRadius: 8, cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FaCogs /> Configuración General
-        </button>
-        <button
-          onClick={() => setActiveTab('sucursales')}
-          style={{ padding: '10px 20px', background: activeTab === 'sucursales' ? '#3498db' : 'transparent', color: activeTab === 'sucursales' ? '#fff' : '#666', border: 'none', borderTopLeftRadius: 8, borderTopRightRadius: 8, cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FaBuilding /> Gestión de Sucursales
-        </button>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '2px solid #eee', flexWrap: 'wrap' }}>
+        {[
+          { key: 'general', icon: <FaCogs />, label: 'Configuración General' },
+          { key: 'sucursales', icon: <FaBuilding />, label: 'Sucursales' },
+          { key: 'ncf', icon: <FaFileInvoiceDollar />, label: 'NCF / Fiscal' },
+          { key: 'portal', icon: <FaGlobe />, label: 'Portal Paciente' },
+          { key: 'seguridad', icon: <FaUserShield />, label: 'Seguridad' },
+        ].map(tab => (
+          <button key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{ padding: '10px 16px', background: activeTab === tab.key ? '#3498db' : 'transparent', color: activeTab === tab.key ? '#fff' : '#666', border: 'none', borderTopLeftRadius: 8, borderTopRightRadius: 8, cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'general' ? (
@@ -348,6 +372,84 @@ const AdminPanel = () => {
               </div>
             </div>
           )}
+        </form>
+      ) : activeTab === 'sucursales' ? (
+        <AdminSucursales />
+      ) : activeTab === 'ncf' ? (
+        <form onSubmit={guardar}>
+          <Seccion titulo="Configuración NCF y Comprobantes Fiscales" icono={<FaFileInvoiceDollar style={{ color: '#8e44ad' }} />}>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666', background: '#f8f9ff', padding: '10px 14px', borderRadius: 8, borderLeft: '3px solid #8e44ad' }}>
+              Configure las secuencias de Números de Comprobantes Fiscales (NCF) según la DGII.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0 20px' }}>
+              <Campo label="NCF B01 (Factura con Valor Fiscal) — Desde" fieldKey="ncf_b01_desde" value={config.ncf_b01_desde} onChange={set} placeholder="B0100000001" />
+              <Campo label="NCF B01 — Hasta" fieldKey="ncf_b01_hasta" value={config.ncf_b01_hasta} onChange={set} placeholder="B0100099999" />
+              <Campo label="NCF B02 (Factura Consumidor Final) — Desde" fieldKey="ncf_b02_desde" value={config.ncf_b02_desde} onChange={set} placeholder="B0200000001" />
+              <Campo label="NCF B02 — Hasta" fieldKey="ncf_b02_hasta" value={config.ncf_b02_hasta} onChange={set} placeholder="B0200099999" />
+              <Campo label="NCF Actual (último utilizado)" fieldKey="ncf_actual" value={config.ncf_actual} onChange={set} placeholder="B0200000023" />
+              <Campo label="ITBIS (%)" fieldKey="itbis_porcentaje" value={config.itbis_porcentaje} onChange={set} placeholder="18" />
+              <Campo label="Símbolo de Moneda" fieldKey="moneda_simbolo" value={config.moneda_simbolo} onChange={set} placeholder="RD$" />
+            </div>
+          </Seccion>
+          <button type="submit" disabled={guardando} style={{ width: '100%', padding: '16px', borderRadius: 14, background: guardado ? 'linear-gradient(135deg,#27ae60,#2ecc71)' : 'linear-gradient(135deg,#0f4c75,#1a6ba8)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            {guardando ? <FaSpinner className="spin" /> : guardado ? <FaCheck /> : <FaSave />}
+            {guardando ? 'Guardando...' : guardado ? '¡Guardado!' : 'Guardar NCF'}
+          </button>
+        </form>
+      ) : activeTab === 'portal' ? (
+        <form onSubmit={guardar}>
+          <Seccion titulo="Configuración del Portal del Paciente" icono={<FaGlobe style={{ color: '#27ae60' }} />}>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666', background: '#f8f9ff', padding: '10px 14px', borderRadius: 8, borderLeft: '3px solid #27ae60' }}>
+              Configure el portal en línea donde los pacientes acceden a sus resultados y facturas mediante el código QR de su recibo.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0 20px' }}>
+              <Campo label="URL del Portal (dominio público)" fieldKey="portal_url" value={config.portal_url} onChange={set} placeholder="https://resultados.micentro.com" />
+              <Campo label="Título del Portal" fieldKey="portal_titulo" value={config.portal_titulo} onChange={set} placeholder="Portal de Resultados — Mi Centro" />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Campo label="Mensaje de Bienvenida" fieldKey="portal_mensaje_bienvenida" value={config.portal_mensaje_bienvenida} onChange={set} placeholder="Bienvenido a su portal de resultados médicos." />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
+              {[
+                { key: 'portal_mostrar_resultados', label: 'Mostrar Resultados de Laboratorio' },
+                { key: 'portal_mostrar_facturas', label: 'Mostrar Historial de Facturas' },
+              ].map(({ key, label }) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#374151', fontSize: 14 }}>
+                  <input type="checkbox" checked={config[key] !== 'false'} onChange={e => set(key, e.target.checked ? 'true' : 'false')} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </Seccion>
+          <div style={{ background: '#f8f9ff', borderRadius: 12, padding: '16px 20px', marginBottom: 20, border: '1px solid #e8eaf6' }}>
+            <h4 style={{ margin: '0 0 8px', color: '#555', fontSize: 13 }}>🔑 Credenciales de Acceso para Pacientes</h4>
+            <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+              Las credenciales se generan automáticamente al crear una factura:<br />
+              <strong>Usuario:</strong> Primer nombre del paciente (ej: <code>maria</code>)<br />
+              <strong>Contraseña:</strong> Primer apellido del paciente (ej: <code>garcia</code>)<br />
+              Estas credenciales se imprimen en el recibo térmico junto al código QR.
+            </p>
+          </div>
+          <button type="submit" disabled={guardando} style={{ width: '100%', padding: '16px', borderRadius: 14, background: guardado ? 'linear-gradient(135deg,#27ae60,#2ecc71)' : 'linear-gradient(135deg,#0f4c75,#1a6ba8)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            {guardando ? <FaSpinner className="spin" /> : guardado ? <FaCheck /> : <FaSave />}
+            {guardando ? 'Guardando...' : guardado ? '¡Guardado!' : 'Guardar Portal'}
+          </button>
+        </form>
+      ) : activeTab === 'seguridad' ? (
+        <form onSubmit={guardar}>
+          <Seccion titulo="Configuración del Servidor y Seguridad" icono={<FaUserShield style={{ color: '#e74c3c' }} />}>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#666', background: '#fff3f3', padding: '10px 14px', borderRadius: 8, borderLeft: '3px solid #e74c3c' }}>
+              ⚠️ Estas configuraciones afectan la conectividad del sistema. Modifique con precaución.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0 20px' }}>
+              <Campo label="URL del Servidor (API)" fieldKey="servidor_url" value={config.servidor_url} onChange={set} placeholder="https://api.micentro.com" />
+              <Campo label="Dominio Público" fieldKey="servidor_dominio" value={config.servidor_dominio} onChange={set} placeholder="micentro.com" />
+            </div>
+          </Seccion>
+          <button type="submit" disabled={guardando} style={{ width: '100%', padding: '16px', borderRadius: 14, background: guardado ? 'linear-gradient(135deg,#27ae60,#2ecc71)' : 'linear-gradient(135deg,#0f4c75,#1a6ba8)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            {guardando ? <FaSpinner className="spin" /> : guardado ? <FaCheck /> : <FaSave />}
+            {guardando ? 'Guardando...' : guardado ? '¡Guardado!' : 'Guardar Servidor'}
+          </button>
         </form>
       ) : (
         <AdminSucursales />

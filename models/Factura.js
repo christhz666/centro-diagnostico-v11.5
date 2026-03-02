@@ -98,6 +98,10 @@ const facturaSchema = new mongoose.Schema({
     },
     pacientePassword: {
         type: String
+    },
+    // Contraseña en texto plano guardada para impresión en factura térmica
+    pacientePasswordPlano: {
+        type: String
     }
 }, {
     timestamps: true
@@ -122,18 +126,13 @@ facturaSchema.pre('validate', async function (next) {
             this.codigoBarras = `${Date.now().toString().slice(-6)}${randomStr}`;
         }
 
-        // Generar Codigo LIS (4-5 dígitos empezando en 1000)
-        if (!this.codigoLIS) {
-            // Buscamos el codigoLIS más alto para incrementar
-            const ultimaFacturaLIS = await mongoose.model('Factura').findOne({ codigoLIS: { $exists: true } }).sort({ codigoLIS: -1 });
-            if (ultimaFacturaLIS && ultimaFacturaLIS.codigoLIS) {
-                this.codigoLIS = ultimaFacturaLIS.codigoLIS + 1;
-                // Reiniciar si pasa de 99999 (opcional, aunque 5 dígitos es hasta 99999)
-                if (this.codigoLIS > 99999) {
-                    this.codigoLIS = 1000;
-                }
-            } else {
-                this.codigoLIS = 1000; // Empieza en 1000
+        // Generar Codigo LIS = mismo número secuencial que el número de factura
+        // para que el ID del paciente en la máquina coincida con su facturación
+        if (!this.codigoLIS && this.numero) {
+            // Extraer número de "FAC-000007" → 7
+            const match = this.numero.match(/(\d+)$/);
+            if (match) {
+                this.codigoLIS = parseInt(match[1], 10);
             }
         }
 
@@ -148,22 +147,16 @@ facturaSchema.pre('validate', async function (next) {
             const Paciente = mongoose.model('Paciente');
             const pac = await Paciente.findById(this.paciente);
             if (pac) {
-                // Username: primerNombre + primeros4 de cédula
-                const primerNombre = (pac.nombre || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-                const cedula = (pac.cedula || '').replace(/[^0-9]/g, '');
-                this.pacienteUsername = `${primerNombre}${cedula.substring(0, 4)}`;
+                // Username: nombre del paciente (primer nombre, minúsculas, sin espacios)
+                const primerNombre = (pac.nombre || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
+                const primerApellido = (pac.apellido || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
+                this.pacienteUsername = primerNombre || primerApellido || 'paciente';
 
-                // Password en texto plano (para imprimir en factura)
-                let rawPassword;
-                if (pac.fechaNacimiento) {
-                    const anio = new Date(pac.fechaNacimiento).getFullYear();
-                    rawPassword = `${cedula.slice(-4)}${anio}`;
-                } else {
-                    rawPassword = cedula.slice(-6) || 'clave123';
-                }
+                // Contraseña: primer apellido del paciente
+                const rawPassword = primerApellido || primerNombre || 'clave123';
 
-                // Guardar texto plano para impresión ANTES de hashear
-                this._plainPassword = rawPassword;
+                // Guardar contraseña en texto plano para impresión en factura térmica
+                this.pacientePasswordPlano = rawPassword;
 
                 // Hashear la contraseña para la base de datos
                 const salt = await bcrypt.genSalt(10);

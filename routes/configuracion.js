@@ -55,7 +55,12 @@ router.put('/', protect, authorize('admin'), async (req, res) => {
 // GET /api/configuracion/empresa - Public company info (no auth required)
 router.get('/empresa', async (req, res) => {
     try {
-        const claves = ['empresa_nombre', 'empresa_rnc', 'empresa_telefono', 'empresa_direccion', 'empresa_email', 'logo_login', 'logo_factura', 'logo_resultados', 'color_primario', 'color_secundario', 'color_acento'];
+        const claves = [
+            'empresa_nombre', 'empresa_rnc', 'empresa_ruc', 'empresa_telefono',
+            'empresa_direccion', 'empresa_email',
+            'logo_login', 'logo_factura', 'logo_resultados', 'logo_sidebar',
+            'color_primario', 'color_secundario', 'color_acento'
+        ];
         const configs = await Configuracion.find({ clave: { $in: claves } });
 
         const info = {};
@@ -66,6 +71,9 @@ router.get('/empresa', async (req, res) => {
                 info[c.clave] = c.valor;
             }
         });
+        // Normalize RNC/RUC: accept both keys
+        if (!info.rnc && info.ruc) info.rnc = info.ruc;
+        if (!info.ruc && info.rnc) info.ruc = info.rnc;
         res.json(info);
     } catch (error) {
         res.status(500).json({ error: error.message });

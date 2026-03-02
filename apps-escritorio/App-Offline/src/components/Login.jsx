@@ -61,9 +61,12 @@ const Login = ({ onLogin }) => {
 
         const savedUsername = localStorage.getItem('savedUsername');
         const savedPassword = localStorage.getItem('savedPassword');
+        const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
         if (savedUsername) {
             setUsername(savedUsername);
             setRememberMe(true);
+        } else {
+            setRememberMe(savedRememberMe);
         }
         if (savedPassword) {
             setPassword(savedPassword);
@@ -138,9 +141,11 @@ const Login = ({ onLogin }) => {
                 if (rememberMe) {
                     localStorage.setItem('savedUsername', username);
                     localStorage.setItem('savedPassword', password);
+                    localStorage.setItem('rememberMe', 'true');
                 } else {
                     localStorage.removeItem('savedUsername');
                     localStorage.removeItem('savedPassword');
+                    localStorage.removeItem('rememberMe');
                 }
 
                 // Disparar en background la apertura del turno de caja del dia

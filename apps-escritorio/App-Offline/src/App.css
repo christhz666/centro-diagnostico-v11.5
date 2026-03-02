@@ -850,3 +850,59 @@ button,
     background: rgba(135, 206, 235, 0.1);
   }
 }
+
+/* ── Modo Noche / Dark Mode ──────────────────────────────── */
+body.dark-mode {
+  --color-bg: #1a1f2e;
+  --color-white: #1e2535;
+  --color-dark: #e0e6f0;
+  background: #1a1f2e;
+  color: #e0e6f0;
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4 {
+  color: #e0e6f0;
+}
+
+body.dark-mode .card,
+body.dark-mode [style*="background: white"],
+body.dark-mode [style*="background:white"] {
+  background: #1e2535 !important;
+  color: #e0e6f0 !important;
+}
+
+body.dark-mode table thead tr {
+  background: #253147 !important;
+}
+
+body.dark-mode table tbody tr {
+  border-color: rgba(255,255,255,0.06) !important;
+}
+
+body.dark-mode table tbody tr:hover,
+body.dark-mode .cita-row:hover {
+  background: #253147 !important;
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+  background: #253147 !important;
+  color: #e0e6f0 !important;
+  border-color: rgba(255,255,255,0.15) !important;
+}
+
+body.dark-mode label {
+  color: #aab4c4 !important;
+}
+
+body.dark-mode p {
+  color: #aab4c4;
+}
+
+body.dark-mode .app-main-content {
+  background: #1a1f2e;
+}

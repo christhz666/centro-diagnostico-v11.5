@@ -411,22 +411,45 @@ router.post('/recibir-json', async (req, res) => {
       timestamp
     } = req.body;
 
-    // Buscar paciente por cédula o ID
+    // Buscar paciente por cédula, codigoLIS (via Factura) o ID
     let paciente;
-    if (cedula) {
-      paciente = await Paciente.findOne({ cedula });
-    } else if (paciente_id) {
-      paciente = await Paciente.findById(paciente_id).catch(() => null);
+    const identificador = cedula || paciente_id;
+    if (identificador) {
+      // 1. Búsqueda directa por cédula
+      paciente = await Paciente.findOne({ cedula: identificador });
+
+      // 2. Búsqueda por codigoLIS en Factura (el ID que envía la máquina)
       if (!paciente) {
-        paciente = await Paciente.findOne({ cedula: paciente_id });
+        const lisNum = parseInt(identificador, 10);
+        if (!isNaN(lisNum)) {
+          const Factura = require('../models/Factura');
+          const factura = await Factura.findOne({ codigoLIS: lisNum }).populate('paciente');
+          if (factura && factura.paciente) {
+            paciente = factura.paciente;
+          }
+        }
+      }
+
+      // 3. Búsqueda por número de factura (FAC-000007)
+      if (!paciente && typeof identificador === 'string' && identificador.toUpperCase().startsWith('FAC')) {
+        const Factura = require('../models/Factura');
+        const factura = await Factura.findOne({ numero: identificador.toUpperCase() }).populate('paciente');
+        if (factura && factura.paciente) {
+          paciente = factura.paciente;
+        }
+      }
+
+      // 4. Búsqueda por MongoDB ID
+      if (!paciente && paciente_id) {
+        paciente = await Paciente.findById(paciente_id).catch(() => null);
       }
     }
 
     if (!paciente) {
-      console.log('? Paciente no encontrado:', cedula || paciente_id);
+      console.log('? Paciente no encontrado:', identificador);
       return res.status(404).json({
         success: false,
-        message: `Paciente no encontrado`
+        message: `Paciente no encontrado con identificador: ${identificador}`
       });
     }
 
