@@ -116,7 +116,7 @@ const AdminEquipos = () => {
           }));
         }
       })
-      .catch(() => { });
+      .catch(err => { console.error('Error cargando config Rayos X:', err); });
   }, []);
 
   const guardarXrayConfig = async (e) => {

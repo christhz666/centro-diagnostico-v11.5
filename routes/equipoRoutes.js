@@ -398,6 +398,7 @@ router.post('/recibir-json', async (req, res) => {
     const Paciente = require('../models/Paciente');
     const Estudio = require('../models/Estudio');
     const Cita = require('../models/Cita');
+    const Factura = require('../models/Factura');
 
     const {
       station_name,
@@ -422,7 +423,6 @@ router.post('/recibir-json', async (req, res) => {
       if (!paciente) {
         const lisNum = parseInt(identificador, 10);
         if (!isNaN(lisNum)) {
-          const Factura = require('../models/Factura');
           const factura = await Factura.findOne({ codigoLIS: lisNum }).populate('paciente');
           if (factura && factura.paciente) {
             paciente = factura.paciente;
@@ -432,7 +432,6 @@ router.post('/recibir-json', async (req, res) => {
 
       // 3. Búsqueda por número de factura (FAC-000007)
       if (!paciente && typeof identificador === 'string' && identificador.toUpperCase().startsWith('FAC')) {
-        const Factura = require('../models/Factura');
         const factura = await Factura.findOne({ numero: identificador.toUpperCase() }).populate('paciente');
         if (factura && factura.paciente) {
           paciente = factura.paciente;

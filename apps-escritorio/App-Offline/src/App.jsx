@@ -66,7 +66,7 @@ function App() {
     fetch('/api/configuracion/empresa', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.json())
       .then(d => { if (d && typeof d === 'object') setEmpresaConfig(d); })
-      .catch(() => { });
+      .catch(err => console.error('Error cargando config empresa:', err));
   };
 
   useEffect(() => {

@@ -147,9 +147,10 @@ facturaSchema.pre('validate', async function (next) {
             const Paciente = mongoose.model('Paciente');
             const pac = await Paciente.findById(this.paciente);
             if (pac) {
+                const normalizarNombre = (str) => (str || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
                 // Username: nombre del paciente (primer nombre, minúsculas, sin espacios)
-                const primerNombre = (pac.nombre || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
-                const primerApellido = (pac.apellido || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
+                const primerNombre = normalizarNombre(pac.nombre);
+                const primerApellido = normalizarNombre(pac.apellido);
                 this.pacienteUsername = primerNombre || primerApellido || 'paciente';
 
                 // Contraseña: primer apellido del paciente
