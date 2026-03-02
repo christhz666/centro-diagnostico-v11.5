@@ -4,7 +4,8 @@ import {
   FaFlask, FaSync, FaPlus, FaEdit, FaTrash, FaPowerOff, FaPlay,
   FaStop, FaNetworkWired, FaUsb, FaFolder, FaBroadcastTower,
   FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaClock,
-  FaChevronDown, FaChevronRight, FaDatabase, FaRedoAlt
+  FaChevronDown, FaChevronRight, FaDatabase, FaRedoAlt,
+  FaXRay, FaSave, FaSpinner, FaCheck
 } from 'react-icons/fa';
 
 const ESTADO_ICONO = {
@@ -45,6 +46,15 @@ const AdminEquipos = () => {
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('laboratorio');
+  const [xrayConfig, setXrayConfig] = useState({
+    ris_in_ip: '', ris_in_puerto: '4242',
+    pacs_ip: '', pacs_puerto: '11112',
+    pacs_aet: 'CENTROMED', ris_aet: 'RIS_IN',
+    ae_title_propio: 'WORKSTATION',
+  });
+  const [xrayGuardando, setXrayGuardando] = useState(false);
+  const [xrayGuardado, setXrayGuardado] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '', marca: '', modelo: '', tipo: 'hematologia',
     protocolo: 'ASTM', estado: 'activo',
@@ -85,6 +95,48 @@ const AdminEquipos = () => {
   }, []);
 
   useEffect(() => { cargarEquipos(); cargarResultadosRecientes(); }, [cargarEquipos, cargarResultadosRecientes]);
+
+  // Cargar configuración de Rayos X desde el backend (configuracion)
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('/api/configuracion/', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        const cfg = d?.configuracion || d || {};
+        if (cfg.ris_in_ip !== undefined) {
+          setXrayConfig(prev => ({
+            ...prev,
+            ris_in_ip: cfg.ris_in_ip || '',
+            ris_in_puerto: cfg.ris_in_puerto || '4242',
+            pacs_ip: cfg.pacs_ip || '',
+            pacs_puerto: cfg.pacs_puerto || '11112',
+            pacs_aet: cfg.pacs_aet || 'CENTROMED',
+            ris_aet: cfg.ris_aet || 'RIS_IN',
+            ae_title_propio: cfg.ae_title_propio || 'WORKSTATION',
+          }));
+        }
+      })
+      .catch(err => { console.error('Error cargando config Rayos X:', err); });
+  }, []);
+
+  const guardarXrayConfig = async (e) => {
+    e.preventDefault();
+    setXrayGuardando(true);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('/api/configuracion/', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(xrayConfig)
+      });
+      setXrayGuardado(true);
+      setTimeout(() => setXrayGuardado(false), 3000);
+    } catch (err) {
+      alert('Error al guardar: ' + err.message);
+    } finally {
+      setXrayGuardando(false);
+    }
+  };
 
   // Polling cada 15 segundos para actualizar estados
   useEffect(() => {
@@ -168,15 +220,16 @@ const AdminEquipos = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto', fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
 
       {/* ── Header ────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#1b262c', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <FaFlask style={{ color: '#3498db' }} /> Equipos LIS
+            <FaFlask style={{ color: '#3498db' }} /> Equipos y Sistemas de Integración
           </h1>
           <p style={{ margin: '4px 0 0', color: '#888', fontSize: 14 }}>
-            Sistema de integración con equipos de laboratorio — {equipos.length} equipo(s) registrado(s)
+            Laboratorio (LIS) · Imagenología (RIS/PACS) — {equipos.length} equipo(s) de lab
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -186,15 +239,117 @@ const AdminEquipos = () => {
           }}>
             <FaSync style={{ animation: refreshing ? 'spin 0.5s linear infinite' : 'none' }} /> Actualizar
           </button>
-          <button onClick={() => { setEditando(null); setFormData({ nombre: '', marca: '', modelo: '', tipo: 'hematologia', protocolo: 'ASTM', estado: 'activo', configuracion: { ip: '', puertoTcp: '', puerto: '', baudRate: 9600, rutaArchivos: '' } }); setShowForm(true); }} style={{
-            padding: '10px 16px', background: 'linear-gradient(135deg,#0f4c75,#1a6ba8)', color: 'white',
-            border: 'none', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600
-          }}>
-            <FaPlus /> Nuevo Equipo
-          </button>
+          {activeTab === 'laboratorio' && (
+            <button onClick={() => { setEditando(null); setFormData({ nombre: '', marca: '', modelo: '', tipo: 'hematologia', protocolo: 'ASTM', estado: 'activo', configuracion: { ip: '', puertoTcp: '', puerto: '', baudRate: 9600, rutaArchivos: '' } }); setShowForm(true); }} style={{
+              padding: '10px 16px', background: 'linear-gradient(135deg,#0f4c75,#1a6ba8)', color: 'white',
+              border: 'none', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600
+            }}>
+              <FaPlus /> Nuevo Equipo
+            </button>
+          )}
         </div>
       </div>
 
+      {/* ── Tabs ─────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '2px solid #eee' }}>
+        {[
+          { key: 'laboratorio', icon: <FaFlask />, label: 'Equipos de Laboratorio (LIS)' },
+          { key: 'xray', icon: <FaXRay />, label: 'Rayos X / RIS-PACS' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            style={{ padding: '10px 18px', background: activeTab === tab.key ? '#3498db' : 'transparent', color: activeTab === tab.key ? '#fff' : '#666', border: 'none', borderTopLeftRadius: 8, borderTopRightRadius: 8, cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'xray' ? (
+        /* ── Configuración RIS-IN / PACS ─────────────────────── */
+        <form onSubmit={guardarXrayConfig}>
+          <div style={{ background: 'white', borderRadius: 16, padding: '22px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', marginBottom: 20, border: '1px solid #f0f0f0' }}>
+            <h3 style={{ margin: '0 0 6px', color: '#1b262c', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <FaXRay style={{ color: '#8e44ad' }} /> Módulo RIS-IN (Envío de Worklist al Equipo de Rayos X)
+            </h3>
+            <p style={{ margin: '0 0 18px', fontSize: 13, color: '#888' }}>
+              Configura la IP y puerto del módulo RIS-IN instalado en el equipo de rayos X. Cuando se agenda un estudio de imagenología, se enviará la worklist DICOM a esta dirección.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px 20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>Dirección IP del RIS-IN</label>
+                <input value={xrayConfig.ris_in_ip} placeholder="192.168.1.50" onChange={e => setXrayConfig({ ...xrayConfig, ris_in_ip: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>Puerto TCP del RIS-IN</label>
+                <input value={xrayConfig.ris_in_puerto} placeholder="4242" onChange={e => setXrayConfig({ ...xrayConfig, ris_in_puerto: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>AE Title del RIS-IN</label>
+                <input value={xrayConfig.ris_aet} placeholder="RIS_IN" onChange={e => setXrayConfig({ ...xrayConfig, ris_aet: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box', fontFamily: 'monospace' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>AE Title propio (esta estación)</label>
+                <input value={xrayConfig.ae_title_propio} placeholder="WORKSTATION" onChange={e => setXrayConfig({ ...xrayConfig, ae_title_propio: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box', fontFamily: 'monospace' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8f9ff', borderRadius: 8, fontSize: 12, color: '#666', borderLeft: '3px solid #3498db' }}>
+              💡 Ejemplo: Si el equipo de rayos X tiene el módulo RIS-IN en <code>192.168.1.50:4242</code>, ingrésalo aquí. La worklist se envía vía protocolo DICOM C-FIND.
+            </div>
+          </div>
+
+          <div style={{ background: 'white', borderRadius: 16, padding: '22px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', marginBottom: 20, border: '1px solid #f0f0f0' }}>
+            <h3 style={{ margin: '0 0 6px', color: '#1b262c', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <FaNetworkWired style={{ color: '#e74c3c' }} /> Módulo PACS (Almacenamiento de Imágenes DICOM)
+            </h3>
+            <p style={{ margin: '0 0 18px', fontSize: 13, color: '#888' }}>
+              Configura la dirección del servidor PACS donde se almacenan las imágenes DICOM del equipo de rayos X.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px 20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>Dirección IP del PACS</label>
+                <input value={xrayConfig.pacs_ip} placeholder="192.168.1.100" onChange={e => setXrayConfig({ ...xrayConfig, pacs_ip: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>Puerto TCP del PACS</label>
+                <input value={xrayConfig.pacs_puerto} placeholder="11112" onChange={e => setXrayConfig({ ...xrayConfig, pacs_puerto: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>AE Title del PACS</label>
+                <input value={xrayConfig.pacs_aet} placeholder="CENTROMED" onChange={e => setXrayConfig({ ...xrayConfig, pacs_aet: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box', fontFamily: 'monospace' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8f9ff', borderRadius: 8, fontSize: 12, color: '#666', borderLeft: '3px solid #e74c3c' }}>
+              💡 El PACS ya configurado en el servidor usa el protocolo DICOM C-STORE. Las imágenes del equipo de rayos X se envían automáticamente a esta dirección.
+            </div>
+          </div>
+
+          <div style={{ background: '#f0f8ff', borderRadius: 12, padding: '16px 20px', marginBottom: 20, border: '1px solid #b8d8f0' }}>
+            <h4 style={{ margin: '0 0 8px', color: '#1a3a5c', fontSize: 14 }}>📋 Resumen de la Configuración</h4>
+            <div style={{ fontSize: 13, color: '#555', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 20px' }}>
+              <div><strong>RIS-IN:</strong> {xrayConfig.ris_in_ip ? `${xrayConfig.ris_in_ip}:${xrayConfig.ris_in_puerto} (${xrayConfig.ris_aet})` : 'No configurado'}</div>
+              <div><strong>PACS:</strong> {xrayConfig.pacs_ip ? `${xrayConfig.pacs_ip}:${xrayConfig.pacs_puerto} (${xrayConfig.pacs_aet})` : 'No configurado'}</div>
+              <div><strong>AE Title propio:</strong> {xrayConfig.ae_title_propio || 'WORKSTATION'}</div>
+            </div>
+          </div>
+
+          <button type="submit" disabled={xrayGuardando} style={{
+            width: '100%', padding: '16px', borderRadius: 14,
+            background: xrayGuardado ? 'linear-gradient(135deg,#27ae60,#2ecc71)' : 'linear-gradient(135deg,#8e44ad,#6c3483)',
+            color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
+          }}>
+            {xrayGuardando ? <FaSpinner style={{ animation: 'spin 0.8s linear infinite' }} /> : xrayGuardado ? <FaCheck /> : <FaSave />}
+            {xrayGuardando ? 'Guardando...' : xrayGuardado ? '¡Configuración RIS/PACS Guardada!' : 'Guardar Configuración RIS-PACS'}
+          </button>
+        </form>
+      ) : (
+        <>
       {/* ── Resumen rápido de estados ──────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
         {[
@@ -328,7 +483,7 @@ const AdminEquipos = () => {
         </div>
       )}
 
-      {/* ── Modal Crear/Editar ─────────────────────────────────── */}
+      {/* ── Modal Crear/Editar Equipo LIS ────────────────────── */}
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ background: 'white', borderRadius: 20, padding: 30, width: '100%', maxWidth: 550, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
@@ -348,7 +503,6 @@ const AdminEquipos = () => {
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }} />
                   </div>
                 ))}
-
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>Tipo</label>
                   <select value={formData.tipo} onChange={e => setFormData({ ...formData, tipo: e.target.value })}
@@ -356,7 +510,6 @@ const AdminEquipos = () => {
                     {Object.keys(TIPO_COLORES).map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                 </div>
-
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>Protocolo</label>
                   <select value={formData.protocolo} onChange={e => setFormData({ ...formData, protocolo: e.target.value })}
@@ -365,8 +518,6 @@ const AdminEquipos = () => {
                   </select>
                 </div>
               </div>
-
-              {/* Configuración según protocolo */}
               <div style={{ marginTop: 16, padding: '14px 16px', background: '#f8f9ff', borderRadius: 12, border: '1px solid #e8eaf6' }}>
                 <h4 style={{ margin: '0 0 12px', fontSize: 13, color: '#555' }}>⚙️ Configuración de Conexión</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
@@ -409,7 +560,6 @@ const AdminEquipos = () => {
                   )}
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                 <button type="button" onClick={() => { setShowForm(false); setEditando(null); }} style={{ flex: 1, padding: '12px', background: '#f0f4f8', border: '1px solid #dde3ed', borderRadius: 12, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Cancelar</button>
                 <button type="submit" style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg,#0f4c75,#1a6ba8)', color: 'white', border: 'none', borderRadius: 12, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
@@ -419,6 +569,8 @@ const AdminEquipos = () => {
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -8,7 +8,7 @@ import {
   FaUserMd, FaCogs, FaSignOutAlt, FaBars, FaTimes, FaUsers,
   FaFlask, FaClipboardList, FaBarcode, FaChevronDown, FaChevronRight,
   FaBalanceScale, FaPalette, FaNetworkWired, FaDownload, FaWhatsapp,
-  FaXRay, FaBell
+  FaXRay, FaBell, FaMoon, FaSun
 } from 'react-icons/fa';
 
 import Login from './components/Login';
@@ -43,9 +43,31 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [empresaConfig, setEmpresaConfig] = useState({});
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const hoverTimeout = useRef(null);
 
   const sidebarExpanded = isMobile ? sidebarMobileOpen : sidebarHovered;
+
+  // Apply dark mode class to body
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    localStorage.setItem('darkMode', darkMode ? 'true' : 'false');
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(prev => !prev);
+
+  // Reload empresa config after settings save
+  const reloadEmpresaConfig = () => {
+    const token = localStorage.getItem('token');
+    fetch('/api/configuracion/empresa', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(r => r.json())
+      .then(d => { if (d && typeof d === 'object') setEmpresaConfig(d); })
+      .catch(err => console.error('Error cargando config empresa:', err));
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -54,6 +76,8 @@ function App() {
       if (mobile) setSidebarHovered(false);
     };
     window.addEventListener('resize', handleResize);
+    // Listen for config update events from AdminPanel
+    window.addEventListener('empresa-config-updated', reloadEmpresaConfig);
 
     // Activar el Autostart si estamos en entorno Tauri
     if (window.__TAURI__) {
@@ -62,7 +86,10 @@ function App() {
       }).catch(e => console.error("Error Autostart:", e));
     }
 
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('empresa-config-updated', reloadEmpresaConfig);
+    };
   }, []);
 
   useEffect(() => {
@@ -76,11 +103,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch('/api/configuracion/empresa', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(r => r.json())
-      .then(d => { if (d && typeof d === 'object') setEmpresaConfig(d); })
-      .catch(() => { });
+    reloadEmpresaConfig();
   }, []);
 
   const handleLogin = (u, t) => { localStorage.setItem('token', t); localStorage.setItem('user', JSON.stringify(u)); setToken(t); setUser(u); };
@@ -318,14 +341,14 @@ function App() {
             flex: 1,
             marginLeft: isMobile ? 0 : sidebarW,
             minHeight: '100vh',
-            background: '#f0f4f8',
+            background: darkMode ? '#1a1f2e' : '#f0f4f8',
             transition: 'margin-left 0.3s ease',
           }}>
             {/* Header */}
             <header style={{
               position: 'sticky', top: 0, zIndex: 100,
-              background: 'white',
-              borderBottom: '1px solid rgba(0,0,0,0.06)',
+              background: darkMode ? '#0d1520' : 'white',
+              borderBottom: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
               boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
               padding: '0 20px',
               height: 60,
@@ -334,21 +357,38 @@ function App() {
               {/* Botón menú (móvil o siempre visible) */}
               <button
                 onClick={() => isMobile ? setSidebarMobileOpen(!sidebarMobileOpen) : setSidebarHovered(!sidebarHovered)}
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#1b262c', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? '#e0e6f0' : '#1b262c', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
               >
                 {(isMobile ? sidebarMobileOpen : sidebarHovered) ? <FaTimes /> : <FaBars />}
               </button>
 
               {/* Breadcrumb / título página */}
               <div style={{ flex: 1, paddingLeft: 16 }}>
-                <PageTitle />
+                <PageTitle darkMode={darkMode} />
               </div>
 
               {/* Info usuario derecha */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {/* Botón Modo Día/Noche */}
+                <button
+                  onClick={toggleDarkMode}
+                  title={darkMode ? 'Cambiar a modo día' : 'Cambiar a modo noche'}
+                  style={{
+                    background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                    border: darkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)',
+                    borderRadius: 20, padding: '6px 12px',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                    color: darkMode ? '#87CEEB' : '#555', fontSize: 13, fontWeight: 600,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {darkMode ? <FaSun style={{ fontSize: 14 }} /> : <FaMoon style={{ fontSize: 14 }} />}
+                  <span style={{ fontSize: 12 }}>{darkMode ? 'Día' : 'Noche'}</span>
+                </button>
+
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ color: '#888', fontSize: 14 }}>
-                    Hola, <strong style={{ color: '#1b262c' }}>{user.nombre}</strong>
+                  <span style={{ color: darkMode ? '#aab4c4' : '#888', fontSize: 14 }}>
+                    Hola, <strong style={{ color: darkMode ? '#e0e6f0' : '#1b262c' }}>{user.nombre}</strong>
                   </span>
                   <span style={{
                     background: ROL_COLORS[rol] || '#3498db',
@@ -364,7 +404,7 @@ function App() {
             {/* Contenido de las rutas */}
             <div style={{ padding: '0' }}>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<Dashboard darkMode={darkMode} />} />
                 <Route path="/registro" element={<RegistroInteligente />} />
                 <Route path="/consulta" element={<ConsultaRapida />} />
                 <Route path="/facturas" element={<Facturas />} />
@@ -391,7 +431,7 @@ function App() {
 }
 
 /* Componente de título de la página actual */
-function PageTitle() {
+function PageTitle({ darkMode }) {
   const loc = useLocation();
   const titles = {
     '/': 'Dashboard',
@@ -411,7 +451,7 @@ function PageTitle() {
     '/deploy': 'Deploy Agentes',
   };
   const title = titles[loc.pathname] || 'Sistema';
-  return <span style={{ fontWeight: 600, color: '#1b262c', fontSize: 16 }}>{title}</span>;
+  return <span style={{ fontWeight: 600, color: darkMode ? '#e0e6f0' : '#1b262c', fontSize: 16 }}>{title}</span>;
 }
 
 export default App;
