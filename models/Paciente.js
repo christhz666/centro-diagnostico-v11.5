@@ -124,6 +124,17 @@ const pacienteSchema = new mongoose.Schema({
 
 
 pacienteSchema.pre('validate', function (next) {
+    // Auto-detect esMenor based on fechaNacimiento
+    if (this.fechaNacimiento) {
+        const hoy = new Date();
+        const nac = new Date(this.fechaNacimiento);
+        let edad = hoy.getFullYear() - nac.getFullYear();
+        const m = hoy.getMonth() - nac.getMonth();
+        if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+        if (edad < 18) {
+            this.esMenor = true;
+        }
+    }
     if (this.esMenor && !this.cedula) {
         this.cedula = `MENOR-${Date.now()}`;
     }
